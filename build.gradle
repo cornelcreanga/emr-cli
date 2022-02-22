@@ -1,0 +1,32 @@
+
+
+plugins {
+    id 'java'
+    id 'idea'
+    id "com.github.johnrengelman.shadow" version "6.1.0"
+}
+
+group 'org.ccreanga.awsutil.emr'
+version '1.0-SNAPSHOT'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation 'info.picocli:picocli:4.6.3'
+    implementation 'org.apache.sshd:sshd-core:2.8.0'
+    implementation 'net.i2p.crypto:eddsa:0.3.0'
+    implementation 'software.amazon.awssdk:protocol-core:2.17.133'
+    implementation 'software.amazon.awssdk:emr:2.17.133'
+}
+
+shadowJar {
+    archiveBaseName.set('dinfra')
+    archiveClassifier.set('')
+    archiveVersion.set('')
+}
+
+test {
+    useJUnitPlatform()
+}
