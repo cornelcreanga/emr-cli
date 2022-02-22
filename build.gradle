@@ -22,7 +22,7 @@ dependencies {
 }
 
 shadowJar {
-    archiveBaseName.set('dinfra')
+    archiveBaseName.set('emrcli')
     archiveClassifier.set('')
     archiveVersion.set('')
 }
