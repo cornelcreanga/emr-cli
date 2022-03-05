@@ -1,10 +1,15 @@
 package org.ccreanga.awsutil.emr;
 
+import org.apache.sshd.client.SshClient;
 import org.ccreanga.awsutil.emr.model.EmrCluster;
+import org.ccreanga.awsutil.emr.ssh.SshCommandRunner;
+import org.ccreanga.awsutil.emr.ssh.SshConnection;
+import org.ccreanga.awsutil.emr.ssh.SshResponse;
 import software.amazon.awssdk.services.emr.EmrClient;
 import software.amazon.awssdk.services.emr.model.*;
 
 import java.util.*;
+import java.util.concurrent.*;
 
 import static java.util.stream.Collectors.groupingBy;
 
@@ -98,5 +103,54 @@ public class EmrHelpers {
         }
         return null;
     }
+
+    public static void runCommands(String userName, List<String> commands,List<String> ipList, Map<String, String> out, Map<String, String> err) {
+        ExecutorService executorService = new ThreadPoolExecutor(8, 32, 0L, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<>());
+        try {
+
+            Map<String, Future<List<SshResponse>>> futures = new HashMap<>();
+            SshClient client = SshClient.setUpDefaultClient();
+            client.start();
+
+            for (String ip : ipList) {
+
+                SshConnection sshConnection = new SshConnection(userName, ip);
+
+                Callable<List<SshResponse>> commandRunner = new SshCommandRunner(client, sshConnection, commands, 30L);
+                Future<List<SshResponse>> future = executorService.submit(commandRunner);
+                futures.put(ip, future);
+            }
+
+            futures.forEach((ip, future) -> {
+                try {
+                    List<SshResponse> response = future.get();
+                    StringBuilder sbOut = new StringBuilder(1024);
+                    StringBuilder sbErr = new StringBuilder(1024);
+                    for (SshResponse sshResponse : response) {
+                        if (sshResponse.getStdOutput().length() > 0) {
+                            sbOut.append(sshResponse.getStdOutput()).append("\n");
+                        }
+                        if (sshResponse.getErrOutput().length() > 0) {
+                            sbErr.append(sshResponse.getErrOutput()).append("\n");
+                        }
+                    }
+                    if (sbOut.length() > 0) {
+                        out.put(ip, sbOut.toString());
+                    }
+                    if (sbErr.length() > 0) {
+                        err.put(ip, sbOut.toString());
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();//todo
+                }
+            });
+
+
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+        executorService.shutdown();
+    }
+
 
 }

@@ -2,18 +2,19 @@ package org.ccreanga.awsutil.emr;
 
 import picocli.CommandLine;
 
+import java.util.*;
+
 @CommandLine.Command(name = "ganglia")
 public class GangliaMetricsCommand implements Runnable {
-
-    private enum DateInThePastType {
-        HOUR1, HOUR2, HOUR4, DAY, WEEK, MONTH, YEAR
-    }
 
     @CommandLine.ParentCommand
     private ParentCommand parent;
 
     @CommandLine.ArgGroup(multiplicity = "1")
     private ClusterIdentification clusterGroup;
+
+    @CommandLine.ArgGroup(multiplicity = "1")
+    InstanceIdentification instanceIdGroup;
 
     @CommandLine.Option(names = {"-host", "--host"}, description = "Host")
     private String host;
@@ -26,6 +27,16 @@ public class GangliaMetricsCommand implements Runnable {
 
     @Override
     public void run() {
+//http://10.26.49.39/ganglia/graph.php?r=day&c=j-3TMSDEOTVHOD0&h=ip-10-26-48-27.us-west-1.compute.internal&m=cpu_userjson=1
+        List<String> commands = Collections.singletonList("");
+        Map<String, String> out = new HashMap<>();
+        Map<String, String> err = new HashMap<>();
 
+        try {
+
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
+
 }

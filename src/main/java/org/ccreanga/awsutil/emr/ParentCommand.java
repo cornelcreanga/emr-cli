@@ -1,5 +1,7 @@
 package org.ccreanga.awsutil.emr;
 
+import org.ccreanga.awsutil.emr.model.EmrCluster;
+import org.ccreanga.awsutil.emr.model.InstanceGroupType;
 import org.slf4j.Logger;
 import picocli.CommandLine;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
@@ -8,9 +10,15 @@ import software.amazon.awssdk.auth.credentials.ProfileCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.emr.EmrClient;
+import software.amazon.awssdk.services.emr.model.Instance;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Collectors;
 
 import static java.lang.invoke.MethodHandles.lookup;
 import static org.slf4j.LoggerFactory.getLogger;
+import static software.amazon.awssdk.services.emr.model.InstanceState.RUNNING;
 
 @CommandLine.Command(name = "emrcli",
         subcommands = {SshExecCommand.class, GangliaMetricsCommand.class})
@@ -33,6 +41,16 @@ public class ParentCommand implements Runnable {
     @CommandLine.ArgGroup(multiplicity = "1")
     AwsAuth awsAuthGroup;
 
+    @CommandLine.ArgGroup(multiplicity = "1")
+    ClusterIdentification clusterGroup;
+
+    @CommandLine.ArgGroup(multiplicity = "1")
+    InstanceIdentification instanceIdGroup;
+
+    String clusterId;
+
+    protected String userName = System.getProperty("user.name");
+
     static class AwsAuth {
         @CommandLine.ArgGroup(exclusive = false, multiplicity = "1")
         AwsKeys awsKeysGroup;
@@ -48,6 +66,7 @@ public class ParentCommand implements Runnable {
     }
 
     protected EmrClient emrClient;
+    protected EmrCluster cluster;
 
     @Override
     public void run() {
@@ -63,6 +82,13 @@ public class ParentCommand implements Runnable {
                 .credentialsProvider(credentialsProvider)
                 .region(Region.of(region))
                 .build();
+
+        clusterId = clusterGroup.clusterId;
+        if (clusterId == null) {
+            clusterId = EmrHelpers.getClusterId(emrClient, clusterGroup.clusterName);
+        }
+
+        cluster = EmrHelpers.getCluster(emrClient, clusterId);
     }
 
     public String getRegion() {

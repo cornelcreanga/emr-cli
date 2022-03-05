@@ -2,6 +2,7 @@ package org.ccreanga.awsutil.emr;
 
 import org.apache.sshd.client.SshClient;
 import org.ccreanga.awsutil.emr.model.EmrCluster;
+import org.ccreanga.awsutil.emr.model.InstanceGroupType;
 import org.ccreanga.awsutil.emr.ssh.SshCommandRunner;
 import org.ccreanga.awsutil.emr.ssh.SshConnection;
 import org.ccreanga.awsutil.emr.ssh.SshResponse;
@@ -22,29 +23,11 @@ import static software.amazon.awssdk.services.emr.model.InstanceState.RUNNING;
 @CommandLine.Command(name = "exec")
 public class SshExecCommand implements Runnable {
 
-    private enum InstanceGroupType {
-        ALL, MASTER, CORE, TASK
-    }
-
     @CommandLine.ParentCommand
     private ParentCommand parent;
 
     @CommandLine.ArgGroup(multiplicity = "1")
-    ClusterIdentification clusterGroup;
-
-    @CommandLine.ArgGroup(multiplicity = "1")
-    InstanceIdentification instanceIdGroup;
-
-    @CommandLine.ArgGroup(multiplicity = "1")
     Command commandGroup;
-
-    static class InstanceIdentification {
-        @CommandLine.Option(names = {"-type", "--type"}, description = "Type")
-        private InstanceGroupType type;
-
-        @CommandLine.Option(names = {"-host", "--host"}, description = "Host")
-        private String host;
-    }
 
     static class Command {
         @CommandLine.Option(names = {"-command", "--command"}, description = "Command")
@@ -55,80 +38,38 @@ public class SshExecCommand implements Runnable {
     }
 
     public void run() {
-        String userName = System.getProperty("user.name");
-        ExecutorService executorService = new ThreadPoolExecutor(8, 32, 0L, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<>());
-        try {
-            String clusterId = clusterGroup.clusterId;
-            if (clusterId == null) {
-                clusterId = EmrHelpers.getClusterId(parent.emrClient, clusterGroup.clusterName);
-            }
+        List<String> commands = buildCommandList();
+        Map<String, String> out = new HashMap<>();
+        Map<String, String> err = new HashMap<>();
 
-            List<String> ipList = new ArrayList<>();
-            if (instanceIdGroup.type != null) {
-
-                EmrCluster cluster = EmrHelpers.getCluster(parent.emrClient, clusterId);
-
-                cluster.getInstanceGroups().forEach((instanceGroup, instances) -> {
-                    if ((InstanceGroupType.ALL == instanceIdGroup.type) ||
-                            (instanceGroup.instanceGroupType().name().equals(instanceIdGroup.type.name()))) {
-
-                        List<String> ips = instances.stream().
-                                filter(instance -> instance.status().state() == RUNNING).
-                                map(Instance::privateIpAddress).
-                                collect(Collectors.toList());
-                        ipList.addAll(ips);
-                    }
-                });
-            } else {
-                ipList.add(instanceIdGroup.host);
-            }
-
-            Map<String, Future<List<SshResponse>>> futures = new HashMap<>();
-            SshClient client = SshClient.setUpDefaultClient();
-            client.start();
-
-            for (String ip : ipList) {
-
-                SshConnection sshConnection = new SshConnection(userName, ip);
-                List<String> commands = buildCommandList();
-
-                Callable<List<SshResponse>> commandRunner = new SshCommandRunner(client, sshConnection, commands, 30L);
-                Future<List<SshResponse>> future = executorService.submit(commandRunner);
-                futures.put(ip, future);
-            }
-
-            futures.forEach((ip, future) -> {
-                try {
-                    List<SshResponse> response = future.get();
-                    StringBuilder sbOut = new StringBuilder(1024);
-                    StringBuilder sbErr = new StringBuilder(1024);
-                    for (SshResponse sshResponse : response) {
-                        if (sshResponse.getStdOutput().length() > 0) {
-                            sbOut.append(sshResponse.getStdOutput()).append("\n");
-                        }
-                        if (sshResponse.getErrOutput().length() > 0) {
-                            sbErr.append(sshResponse.getErrOutput()).append("\n");
-                        }
-                    }
-                    if (sbOut.length() > 0) {
-                        Files.write(Paths.get(ip.replace('.', '-') + ".out"), sbOut.toString().getBytes(UTF_8));
-                    }
-                    if (sbErr.length() > 0) {
-                        Files.write(Paths.get(ip.replace('.', '-') + ".err"), sbErr.toString().getBytes(UTF_8));
-                    }
-                } catch (Exception e) {
-                    e.printStackTrace();//todo
-                }
-            });
-
-
-        } catch (Exception e) {
-            throw new RuntimeException(e);
+        List<String> ipList = new ArrayList<>();
+        if (parent.instanceIdGroup.type != null) {
+            ipList = parent.cluster.filterIp(parent.instanceIdGroup.type);
+        } else {
+            String id = parent.instanceIdGroup.id;
+            Instance instance = parent.cluster.instanceById(id).orElseThrow(() -> new RuntimeException("cant find ec2 machine " + id));
+            ipList.add(instance.privateIpAddress());
         }
-        executorService.shutdown();
+        EmrHelpers.runCommands(parent.userName, commands, ipList, out, err);
+
+        out.forEach((key, value) -> {
+            try {
+                Files.write(Paths.get(key.replace('.', '-') + ".out"), value.getBytes(UTF_8));
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        });
+        err.forEach((key, value) -> {
+            try {
+                Files.write(Paths.get(key.replace('.', '-') + ".out"), value.getBytes(UTF_8));
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        });
     }
 
-    private List<String> buildCommandList() throws IOException {
+
+    private List<String> buildCommandList() {
         if (commandGroup.command != null)
             return Collections.singletonList(commandGroup.command);
         File file = new File(commandGroup.file);
@@ -136,6 +77,10 @@ public class SshExecCommand implements Runnable {
             System.err.println("can't find file " + commandGroup.command);
             System.exit(1);
         }
-        return Files.readAllLines(file.toPath(), UTF_8);
+        try {
+            return Files.readAllLines(file.toPath(), UTF_8);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 }
