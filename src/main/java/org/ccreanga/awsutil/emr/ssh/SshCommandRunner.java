@@ -50,7 +50,7 @@ public class SshCommandRunner implements Callable<List<SshResponse>> {
 
             channelExec.open();
             Set<ClientChannelEvent> events = channelExec.waitFor(EnumSet.of(ClientChannelEvent.CLOSED), SECONDS.toMillis(timeout));
-            session.close(false);
+
 
             if (events.contains(ClientChannelEvent.TIMEOUT)) {
                 throw new SshTimeoutException(command, conn.getHostname(), timeout);
@@ -58,6 +58,7 @@ public class SshCommandRunner implements Callable<List<SshResponse>> {
             responses.add(new SshResponse(out.toString(), err.toString(), channelExec.getExitStatus()));
             channelExec.close();
         }
+        session.close(false);
 
         return responses;
 

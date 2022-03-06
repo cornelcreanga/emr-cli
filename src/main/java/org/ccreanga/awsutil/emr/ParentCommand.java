@@ -21,7 +21,7 @@ import static org.slf4j.LoggerFactory.getLogger;
 import static software.amazon.awssdk.services.emr.model.InstanceState.RUNNING;
 
 @CommandLine.Command(name = "emrcli",
-        subcommands = {SshExecCommand.class, GangliaMetricsCommand.class})
+        subcommands = {SshExecCommand.class, GangliaMetricsCommand.class, MetricCommand.class})
 public class ParentCommand implements Runnable {
 
     public static final Logger log = getLogger(lookup().lookupClass());

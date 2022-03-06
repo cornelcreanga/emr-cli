@@ -28,6 +28,10 @@ public class EmrCluster {
         return Collections.unmodifiableMap(instanceGroups);
     }
 
+    public Instance getMaster() {
+        return filterInstances(InstanceGroupType.MASTER).get(0);
+    }
+
     public List<String> filterIp(InstanceGroupType type){
         List<String> ipList = new ArrayList<>();
         instanceGroups.forEach((instanceGroup, instances) -> {
@@ -52,8 +56,21 @@ public class EmrCluster {
 
                 List<String> ips = instances.stream().
                         filter(instance -> instance.status().state() == RUNNING).
-                        map(Instance::id).
+                        map(Instance::ec2InstanceId).
                         collect(Collectors.toList());
+                ipList.addAll(ips);
+            }
+        });
+        return ipList;
+    }
+
+    public List<Instance> filterInstances(InstanceGroupType type){
+        List<Instance> ipList = new ArrayList<>();
+        instanceGroups.forEach((instanceGroup, instances) -> {
+            if ((InstanceGroupType.ALL == type) ||
+                    (instanceGroup.instanceGroupType().name().equals(type.name()))) {
+
+                List<Instance> ips = instances.stream().filter(instance -> instance.status().state() == RUNNING).collect(Collectors.toList());
                 ipList.addAll(ips);
             }
         });

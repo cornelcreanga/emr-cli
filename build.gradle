@@ -1,5 +1,3 @@
-
-
 plugins {
     id 'java'
     id 'idea'
@@ -14,16 +12,27 @@ repositories {
 }
 
 ext.versions = [
-        aws              : "2.17.143"
+        aws              : "2.17.143",
+        picocli          : "4.6.3",
+        sshd             : "2.8.0",
+        eddsa            : "0.3.0"
 ]
 
 dependencies {
-    implementation 'info.picocli:picocli:4.6.3'
-    implementation 'org.apache.sshd:sshd-core:2.8.0'
-    implementation 'net.i2p.crypto:eddsa:0.3.0'
+    implementation "info.picocli:picocli:${versions.picocli}"
+    implementation "org.apache.sshd:sshd-core:${versions.sshd}"
+    implementation "net.i2p.crypto:eddsa:${versions.eddsa}"
     implementation "software.amazon.awssdk:protocol-core:${versions.aws}"
     implementation "software.amazon.awssdk:emr:${versions.aws}"
     implementation "software.amazon.awssdk:cloudwatch:${versions.aws}"
+}
+
+jar {
+    manifest {
+        attributes(
+                'Main-Class': 'org.ccreanga.awsutil.emr.ParentCommand'
+        )
+    }
 }
 
 shadowJar {
