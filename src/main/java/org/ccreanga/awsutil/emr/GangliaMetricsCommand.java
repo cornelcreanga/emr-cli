@@ -1,5 +1,7 @@
 package org.ccreanga.awsutil.emr;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.ccreanga.awsutil.emr.ganglia.GangliaReport;
 import picocli.CommandLine;
 import software.amazon.awssdk.services.emr.model.Instance;
 
@@ -14,40 +16,59 @@ public class GangliaMetricsCommand implements Runnable {
     @CommandLine.Option(names = {"-host", "--host"}, description = "Host")
     private String host;
 
-    @CommandLine.Option(names = {"-name", "--name"}, description = "Metric name")
+    @CommandLine.Option(names = {"-name", "--name"}, description = "Metric name eg cpu_user,cpu_idle,part_max_used,disk_total")
     private String name;
 
     @CommandLine.Option(names = {"-last", "--last"}, description = "Date in the past")
     private DateInThePastType last;
 
-    private String format = "wget -O - \"http://%s/ganglia/graph.php?r=%s&c=%s&h=%s&m=%s&json=1\"";
+    private static final String format = "wget -O - \"http://%s/ganglia/graph.php?r=%s&c=%s&h=%s&m=%s&json=1\"";
+
+    private static ObjectMapper mapper = new ObjectMapper();
 
     @Override
     public void run() {
 //http://10.26.49.39/ganglia/graph.php?r=day&c=j-3TMSDEOTVHOD0&h=ip-10-26-48-27.us-west-1.compute.internal&m=cpu_userjson=1
         //List<String> commands = Collections.singletonList("");
-        Map<String, String> out = new HashMap<>();
-        Map<String, String> err = new HashMap<>();
 
-        List<Instance> instanceList = new ArrayList<>();
-        if (parent.instanceIdGroup.type != null) {
-            instanceList.addAll(parent.cluster.filterInstances(parent.instanceIdGroup.type));
-        } else {
-            String id = parent.instanceIdGroup.id;
-            Instance instance = parent.cluster.instanceById(id).orElseThrow(() -> new RuntimeException("cant find ec2 machine " + id));
-            instanceList.add(instance);
+        try {
+            Map<String, String> out = new HashMap<>();
+            Map<String, String> err = new HashMap<>();
+
+            List<Instance> instanceList = new ArrayList<>();
+            if (parent.instanceIdGroup.type != null) {
+                instanceList.addAll(parent.cluster.filterInstances(parent.instanceIdGroup.type));
+            } else {
+                String id = parent.instanceIdGroup.id;
+                Instance instance = parent.cluster.instanceById(id).orElseThrow(() -> new RuntimeException("cant find ec2 machine " + id));
+                instanceList.add(instance);
+            }
+
+            List<String> commands = new ArrayList<>();
+            String masterIp = parent.cluster.getMaster().privateIpAddress();
+            for (Instance instance : instanceList) {
+                String command = String.format(format, masterIp, toGangliaName(last), parent.cluster.getCluster().id(), instance.privateDnsName(), name);
+                commands.add(command);
+            }
+
+            EmrHelpers.runCommands(parent.userName, commands, Collections.singletonList(masterIp), out, err);
+
+            Set<String> keys = out.keySet();
+
+            if (keys.isEmpty()) {
+                System.out.println("no data was found");
+            } else {
+                String key = (String) keys.toArray()[0];
+                String[] json = out.get(key).split("\n");
+                for (String s : json) {
+                    GangliaReport report = mapper.readValue(s, GangliaReport[].class)[0];
+                    System.out.printf("%s\t%.2f\t%.2f \n", report.getMetric_name(), report.avg(), report.max());
+                }
+            }
+
+        }catch (Exception e){
+            e.printStackTrace();
         }
-
-        List<String> commands = new ArrayList<>();
-        String masterIp = parent.cluster.getMaster().privateIpAddress();
-        for (Iterator<Instance> iterator = instanceList.iterator(); iterator.hasNext(); ) {
-            Instance instance = iterator.next();
-            String command = String.format(format, masterIp, toGangliaName(last), parent.cluster.getCluster().id(), instance.privateDnsName(), name);
-            commands.add(command);
-        }
-
-        EmrHelpers.runCommands(parent.userName, commands, Collections.singletonList(masterIp), out, err);
-
         System.out.println("done");
     }
 
