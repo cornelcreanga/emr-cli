@@ -1,6 +1,7 @@
 package org.ccreanga.awsutil.emr;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.ccreanga.awsutil.emr.ganglia.GangliaMetric;
 import org.ccreanga.awsutil.emr.ganglia.GangliaReport;
 import picocli.CommandLine;
 import software.amazon.awssdk.services.emr.model.Instance;
@@ -16,8 +17,8 @@ public class GangliaMetricsCommand implements Runnable {
     @CommandLine.Option(names = {"-host", "--host"}, description = "Host")
     private String host;
 
-    @CommandLine.Option(names = {"-name", "--name"}, description = "Metric name eg cpu_user,cpu_idle,part_max_used,disk_total")
-    private String name;
+    @CommandLine.Option(names = {"-name", "--name"}, description = "Metric name")
+    private GangliaMetric metricName;
 
     @CommandLine.Option(names = {"-last", "--last"}, description = "Date in the past")
     private DateInThePastType last;
@@ -28,8 +29,6 @@ public class GangliaMetricsCommand implements Runnable {
 
     @Override
     public void run() {
-//http://10.26.49.39/ganglia/graph.php?r=day&c=j-3TMSDEOTVHOD0&h=ip-10-26-48-27.us-west-1.compute.internal&m=cpu_userjson=1
-        //List<String> commands = Collections.singletonList("");
 
         try {
             Map<String, String> out = new HashMap<>();
@@ -47,7 +46,7 @@ public class GangliaMetricsCommand implements Runnable {
             List<String> commands = new ArrayList<>();
             String masterIp = parent.cluster.getMaster().privateIpAddress();
             for (Instance instance : instanceList) {
-                String command = String.format(format, masterIp, toGangliaName(last), parent.cluster.getCluster().id(), instance.privateDnsName(), name);
+                String command = String.format(format, masterIp, toGangliaName(last), parent.cluster.getCluster().id(), instance.privateDnsName(), metricName.name().toLowerCase());
                 commands.add(command);
             }
 
@@ -67,7 +66,7 @@ public class GangliaMetricsCommand implements Runnable {
             }
 
         }catch (Exception e){
-            e.printStackTrace();
+           throw new RuntimeException(e);
         }
         System.out.println("done");
     }

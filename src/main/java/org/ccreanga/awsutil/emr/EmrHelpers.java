@@ -36,8 +36,9 @@ public class EmrHelpers {
                 instanceGroupMap.put(instanceGroup, list);
             }
             return new EmrCluster(cluster, instanceGroupMap);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
+
+        } catch (InvalidRequestException e) {
+            throw new RuntimeException(e.awsErrorDetails().errorMessage());
         }
     }
 
@@ -104,8 +105,8 @@ public class EmrHelpers {
         return null;
     }
 
-    public static void runCommands(String userName, List<String> commands,List<String> ipList, Map<String, String> out, Map<String, String> err) {
-        ExecutorService executorService = new ThreadPoolExecutor(8, 32, 0L, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<>());
+    public static void runCommands(String userName, List<String> commands, List<String> ipList, Map<String, String> out, Map<String, String> err, int maxConnections) {
+        ExecutorService executorService = new ThreadPoolExecutor(Math.min(5, maxConnections), maxConnections, 0L, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<>());
         try {
 
             Map<String, Future<List<SshResponse>>> futures = new HashMap<>();

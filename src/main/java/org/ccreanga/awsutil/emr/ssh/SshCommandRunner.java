@@ -35,10 +35,11 @@ public class SshCommandRunner implements Callable<List<SshResponse>> {
         System.out.println("Trying to connect to "+conn.getHostname());
         //todo - allow custom location for user keys
         ConnectFuture cf = client.connect(conn.getUsername(), conn.getHostname(), 22);
-        System.out.println("Connected to "+conn.getHostname());
+
         ClientSession session = cf.verify().getSession();
 
         session.auth().verify(SECONDS.toMillis(timeout));
+        System.out.println("Connected to "+conn.getHostname());
         List<SshResponse> responses = new ArrayList<>();
         for (String command : cmd) {
             ChannelExec channelExec = session.createExecChannel(command);

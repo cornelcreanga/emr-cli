@@ -33,7 +33,7 @@ public class SshExecCommand implements Runnable {
         @CommandLine.Option(names = {"-command", "--command"}, description = "Command")
         private String command;
 
-        @CommandLine.Option(names = {"-command-file", "--command-file"}, description = "File containing commands (one per line)")
+        @CommandLine.Option(names = {"-file", "--file"}, description = "File containing commands (one per line)")
         private String file;
     }
 
@@ -50,7 +50,7 @@ public class SshExecCommand implements Runnable {
             Instance instance = parent.cluster.instanceById(id).orElseThrow(() -> new RuntimeException("cant find ec2 machine " + id));
             ipList.add(instance.privateIpAddress());
         }
-        EmrHelpers.runCommands(parent.userName, commands, ipList, out, err);
+        EmrHelpers.runCommands(parent.userName, commands, ipList, out, err, parent.maxSshConnection);
 
         out.forEach((key, value) -> {
             try {
