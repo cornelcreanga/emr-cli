@@ -50,7 +50,7 @@ public class GangliaMetricsCommand implements Runnable {
                 commands.add(command);
             }
 
-            EmrHelpers.runCommands(parent.userName, commands, Collections.singletonList(masterIp), out, err);
+            EmrHelpers.runCommands(parent.userName, commands, Collections.singletonList(masterIp), out, err, parent.maxSshConnection);
 
             Set<String> keys = out.keySet();
 
