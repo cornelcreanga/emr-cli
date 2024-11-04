@@ -12,6 +12,8 @@ import java.util.*;
 import java.util.concurrent.*;
 
 import static java.util.stream.Collectors.groupingBy;
+import static software.amazon.awssdk.services.emr.model.ClusterState.RUNNING;
+import static software.amazon.awssdk.services.emr.model.ClusterState.WAITING;
 
 public class EmrHelpers {
 
@@ -85,7 +87,7 @@ public class EmrHelpers {
 
     public static String getClusterId(EmrClient emrClient, String clusterName) {
         try {
-            ListClustersRequest request = ListClustersRequest.builder().clusterStates(ClusterState.RUNNING).build();
+            ListClustersRequest request = ListClustersRequest.builder().clusterStates(RUNNING, WAITING).build();
             while (true) {
                 ListClustersResponse response = emrClient.listClusters(request);
                 List<ClusterSummary> clusters = response.clusters();

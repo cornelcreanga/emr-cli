@@ -1,24 +1,18 @@
 package org.ccreanga.awsutil.emr;
 
 import org.ccreanga.awsutil.emr.model.EmrCluster;
+import org.slf4j.Logger;
 import picocli.CommandLine;
 import picocli.CommandLine.*;
-import org.slf4j.Logger;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.ProfileCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.emr.EmrClient;
-import software.amazon.awssdk.services.emr.model.Instance;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.stream.Collectors;
 
 import static java.lang.invoke.MethodHandles.lookup;
 import static org.slf4j.LoggerFactory.getLogger;
-import static software.amazon.awssdk.services.emr.model.InstanceState.RUNNING;
 
 @CommandLine.Command(name = "emrcli",
         subcommands = {SshExecCommand.class, GangliaMetricsCommand.class, MetricCommand.class})
@@ -75,7 +69,7 @@ public class ParentCommand implements Runnable {
 
     @Option(names = {"-maxSsh", "--maxSsh"}, description = "Maximum no of concurrent SSH connections")
     public void setMaxSshConnection(int maxSshConnection) {
-        if (maxSshConnection <= 0 || maxSshConnection>100) {
+        if (maxSshConnection <= 0 || maxSshConnection > 100) {
             throw new ParameterException(spec.commandLine(), "Maximum no of concurrent SSH connections should be between 1 and 100");
         }
         this.maxSshConnection = maxSshConnection;
@@ -101,9 +95,13 @@ public class ParentCommand implements Runnable {
             if (clusterId == null) {
                 clusterId = EmrHelpers.getClusterId(emrClient, clusterGroup.clusterName);
             }
+            if (clusterId == null) {
+                System.out.println("can't find cluster " + clusterGroup.clusterName);
+                System.exit(-1);
+            }
 
             cluster = EmrHelpers.getCluster(emrClient, clusterId);
-        }catch (Exception e){
+        } catch (Exception e) {
             System.out.println(e.getMessage());
             System.exit(-1);
         }
